@@ -1,0 +1,33 @@
+{
+  "storage": "static",
+  "notice": "",
+  "posts": [
+    {
+      "slug": "测试-7bf48462",
+      "title": "测试",
+      "summary": "【1】",
+      "author": "chawuciren",
+      "published_at": "2026-11-04",
+      "tags": [],
+      "format": "markdown",
+      "updated_at": 1793773613,
+      "html_url": "d5c430ab6f4724e25045.json",
+      "pdf_url": "d5c430ab6f4724e25045.pdf"
+    },
+    {
+      "slug": "第一篇传承",
+      "title": "第一篇传承",
+      "summary": "这是从 Markdown 源文件生成卡片并渲染为 PDF 的演示帖子。",
+      "author": "小破站",
+      "published_at": "2026-10-24",
+      "tags": [
+        "站务",
+        "示例"
+      ],
+      "format": "markdown",
+      "updated_at": 1792796995,
+      "html_url": "52e41e4b8dcbceba0274.json",
+      "pdf_url": "52e41e4b8dcbceba0274.pdf"
+    }
+  ]
+}
