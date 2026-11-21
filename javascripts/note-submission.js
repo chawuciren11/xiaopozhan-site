@@ -21,6 +21,10 @@
   const publishStatuses = Array.from(page.querySelectorAll("[data-publish-status]"));
   let timer = null;
   let controller = null;
+  let previewRunning = false;
+  let previewRevision = 0;
+  let nextPreviewAt = 0;
+  let lastPreview = null;
 
   function renumberReferences() {
     referenceList.querySelectorAll(".note-reference-row").forEach(function (row, index) {
@@ -58,37 +62,50 @@
 
   function schedulePreview() {
     window.clearTimeout(timer);
+    previewRevision += 1;
     status.textContent = "等待同步";
-    timer = window.setTimeout(updatePreview, 420);
+    timer = window.setTimeout(updatePreview, Math.max(1500, nextPreviewAt - Date.now()));
   }
 
   async function updatePreview() {
-    if (controller) controller.abort();
+    if (previewRunning) return;
+    const requestBody = JSON.stringify({
+      title: title.value, nickname: nickname.value, body: body.value,
+      references: getReferences(), syntax: syntax.value,
+    });
+    if (requestBody === lastPreview) { status.textContent = "已同步"; return; }
+    const revision = previewRevision;
+    previewRunning = true;
+    nextPreviewAt = Date.now() + 3000;
     controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 60000);
     status.textContent = "正在渲染…";
 
     try {
       const response = await fetch(`${apiBase}/api/submissions/notes/preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          title: title.value,
-          nickname: nickname.value,
-          body: body.value,
-          references: getReferences(),
-          syntax: syntax.value,
-        }),
+        body: requestBody,
         signal: controller.signal,
       });
       const payload = await response.json().catch(function () { return {}; });
       if (!response.ok) throw new Error(payload.detail || `预览服务返回 ${response.status}`);
+      if (revision !== previewRevision) return;
       preview.innerHTML = payload.html;
+      lastPreview = requestBody;
       status.textContent = "已同步";
     } catch (error) {
-      if (error.name === "AbortError") return;
+      if (revision !== previewRevision) return;
       status.textContent = "渲染失败";
       preview.innerHTML = '<div class="note-preview-error"><strong>暂时无法生成预览</strong><p></p></div>';
-      preview.querySelector("p").textContent = String(error.message || error);
+      preview.querySelector("p").textContent = error.name === "AbortError" ? "预览请求超时，请稍后继续编辑重试。" : String(error.message || error);
+    } finally {
+      window.clearTimeout(timeout);
+      previewRunning = false;
+      if (revision !== previewRevision) {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(updatePreview, Math.max(1500, nextPreviewAt - Date.now()));
+      }
     }
   }
 
