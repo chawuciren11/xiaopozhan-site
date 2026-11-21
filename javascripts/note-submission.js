@@ -3,6 +3,9 @@
 
   const page = document.querySelector(".note-submission-page");
   if (!page) return;
+  const apiBase = (document.querySelector('meta[name="account-api-base"]')?.content || "").replace(/\/$/, "");
+  const sessionKey = "xiaopozhan-account:" + (apiBase || location.origin);
+  function sessionToken() { try { return sessionStorage.getItem(sessionKey) || ""; } catch (_) { return ""; } }
 
   const title = page.querySelector("[data-note-title]");
   const realName = page.querySelector("[data-note-real-name]");
@@ -65,7 +68,7 @@
     status.textContent = "正在渲染…";
 
     try {
-      const response = await fetch("/api/submissions/notes/preview", {
+      const response = await fetch(`${apiBase}/api/submissions/notes/preview`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
@@ -107,17 +110,19 @@
   }
 
   async function publishNote() {
+    const token = sessionToken();
+    if (!token) { setPublishStatus("请先登录后再发布，正文可以继续编辑。", "error"); return; }
     if (!validateSubmission()) return;
     publishButtons.forEach(function (button) {
       button.disabled = true;
       button.textContent = "正在发布…";
     });
-    setPublishStatus("正在保存本机投稿信息并上传公开正文……", "pending");
+    setPublishStatus("正在保存投稿资料并上传正文，请勿关闭页面……", "pending");
 
     try {
-      const response = await fetch("/api/submissions/notes", {
+      const response = await fetch(`${apiBase}/api/submissions/notes`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           real_name: realName.value,
           nickname: nickname.value,
@@ -132,16 +137,17 @@
       if (!response.ok) throw new Error(payload.detail || `发布服务返回 ${response.status}`);
 
       setPublishStatus("发布成功，正在打开笔记……", "success");
+      const publishedUrl = new URL(`../../传承/?post=${encodeURIComponent(payload.slug)}`, window.location.href).href;
       publishButtons.forEach(function (button) {
         button.textContent = "已发布";
       });
       const link = document.createElement("a");
       link.className = "md-button note-published-link";
-      link.href = payload.published_url;
+      link.href = publishedUrl;
       link.textContent = "查看已发布笔记";
       publishButtons[publishButtons.length - 1].insertAdjacentElement("afterend", link);
       window.setTimeout(function () {
-        window.location.assign(payload.published_url);
+        window.location.assign(publishedUrl);
       }, 650);
     } catch (error) {
       const message = `发布失败：${String(error.message || error)}`;
@@ -164,5 +170,13 @@
   });
 
   addReference("", false);
+  nickname.readOnly = true;
+  const token = sessionToken();
+  if (token) {
+    fetch(`${apiBase}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" })
+      .then(async (response) => { if (!response.ok) throw new Error("请重新登录后发布"); return response.json(); })
+      .then((payload) => { nickname.value = payload.user.username; schedulePreview(); setPublishStatus("已登录，可以发布笔记。", ""); })
+      .catch(() => setPublishStatus("登录已失效，请重新登录后发布。", "error"));
+  } else { setPublishStatus("请先登录后再发布，正文可以继续编辑。", ""); }
   schedulePreview();
 })();

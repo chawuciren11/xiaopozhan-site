@@ -4,9 +4,10 @@
   const app = document.getElementById("heritage-app");
   if (!app) return;
 
-  const apiBase = (app.dataset.apiBase || "/api/heritage").replace(/\/$/, "");
+  const remoteBase = (document.querySelector('meta[name="account-api-base"]')?.content || "").replace(/\/$/, "");
+  const apiBase = remoteBase ? `${remoteBase}/api/heritage` : (app.dataset.apiBase || "/api/heritage").replace(/\/$/, "");
   const staticIndex = document.querySelector('meta[name="heritage-static-index"]')?.content;
-  const staticBase = staticIndex ? new URL(staticIndex, window.location.href) : null;
+  const staticBase = !remoteBase && staticIndex ? new URL(staticIndex, window.location.href) : null;
   const params = new URLSearchParams(window.location.search);
   const selectedSlug = params.get("post");
 
@@ -32,7 +33,7 @@
         <p>${escapeHtml(message)}</p>
         <button class="md-button" type="button" data-heritage-retry>重新加载</button>
       </div>`;
-    app.querySelector("[data-heritage-retry]")?.addEventListener("click", load);
+    app.querySelector("[data-heritage-retry]")?.addEventListener("click", () => load(true));
   }
 
   async function readerView(post, notice, storage) {
